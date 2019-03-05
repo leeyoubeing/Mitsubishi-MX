@@ -4,8 +4,8 @@
 MXObject.cs		实现MXObject对象  
 Win32API.cs		需要使用的相关Win32 API的声明
 
-一、使用方法  
-	1. 创建MXObject对象
+# 一、使用方法  
+	1. 创建MXObject对象  
 		plc = new MXObject(form, logicalno, password);
 	
 	2. 使用MXObject对象的AddTag方法增加PLC变量到TagList4Random，或者使用AddBlock方法增加要读的块到TagList4Block
@@ -32,9 +32,9 @@ Win32API.cs		需要使用的相关Win32 API的声明
 	
 	5. 调用MXObject的Stop方法停止通讯
 	
-二、API
-	1. class PLC_Tag
-		a. 重要属性：
+# 二、API
+	1. class PLC_Tag  
+		a. 重要属性：  
 			Parent: 对应的MXObject  
 			Address: 地址  
 			Tag_DataType: 数据类型  
