@@ -1,7 +1,7 @@
 # Mitsubishi-MX
 利用三菱的MX Component与三菱PLC通讯
 
-MXObject.cs		实现MXObject对象
+MXObject.cs		实现MXObject对象  
 Win32API.cs		需要使用的相关Win32 API的声明
 
 一、使用方法
