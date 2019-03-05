@@ -1,4 +1,4 @@
-利用三菱的MX Component与三菱PLC通讯
+﻿利用三菱的MX Component与三菱PLC通讯
 
 MXObject.cs		实现MXObject对象
 Win32API.cs		需要使用的相关Win32 API的声明
@@ -17,7 +17,7 @@ Win32API.cs		需要使用的相关Win32 API的声明
 		tag.DataType = Tag_DatType.INT16;
 		taglist.Add(tag);
 		......
-		plc。AddBlock("D100", 30, taglist);
+		plc.AddBlock("D100", 30, taglist);
 		
 	3. 绑定事件
 		plc.OnConnectPLC += ...;

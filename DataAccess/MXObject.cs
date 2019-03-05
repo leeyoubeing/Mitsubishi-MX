@@ -152,7 +152,6 @@ namespace PLCDataAccess
                         case Tag_DataType.FLOAT:
                             v = new object[] { (float)value };
                             break;
-
                     }
                 }
                 if (null == v) return false;
@@ -394,16 +393,25 @@ namespace PLCDataAccess
                     {
                         __connect_value = wparam;
                         Connected = wparam == 0;
-                        _OnTMConnect?.Invoke(this, (int)m.WParam, (int)m.LParam);
+                        if (_OnTMConnect != null)
+                        {
+                            _OnTMConnect(this, (int)m.WParam, (int)m.LParam);
+                        }
+                        //_OnTMConnect?.Invoke(this, (int)m.WParam, (int)m.LParam);
                     }
                     break;
                 case WorkThread.TM_NORMAL_READ:
-                    _OnUpdateTagValue?.Invoke(this, (int)m.WParam);
+                    if (_OnUpdateTagValue != null)
+                    {
+                        _OnUpdateTagValue(this, (int)m.WParam);
+                    }
+                    //_OnUpdateTagValue?.Invoke(this, (int)m.WParam);
                     break;
                 case WorkThread.TM_READ_RANDOM:
                     try
                     {
-                        wdb = Marshal.PtrToStructure<WRDataBlock>(m.WParam);
+                        //wdb = Marshal.PtrToStructure<WRDataBlock>(m.WParam);//vs2017
+                        wdb = (WRDataBlock)Marshal.PtrToStructure(m.WParam, typeof(WRDataBlock));
                         Marshal.FreeHGlobal(m.WParam);
 
                         lparam = (int)m.LParam;
@@ -413,7 +421,11 @@ namespace PLCDataAccess
                             dat = new short[wdb.dat_count];
                             Array.Copy(wdb.data, dat, wdb.dat_count);
                         }
-                        _OnReadRandomComplete?.Invoke(this, wdb.original_address, dat);
+                        if (_OnReadRandomComplete != null)
+                        {
+                            _OnReadRandomComplete(this, wdb.original_address, dat);
+                        }
+                        //_OnReadRandomComplete?.Invoke(this, wdb.original_address, dat);
                     }
                     catch (Exception e)
                     {
@@ -423,10 +435,16 @@ namespace PLCDataAccess
                 case WorkThread.TM_WRITE_RANDOM:
                     try
                     {
-                        wdb = Marshal.PtrToStructure<WRDataBlock>(m.WParam);
+                        //wdb = Marshal.PtrToStructure<WRDataBlock>(m.WParam);//vs2017
+                        wdb = (WRDataBlock)Marshal.PtrToStructure(m.WParam, typeof(WRDataBlock));
                         Marshal.FreeHGlobal(m.WParam);
+
                         lparam = (int)m.LParam;
-                        _OnWriteRandomComplete?.Invoke(this, wdb.original_address, 0 == lparam);
+                        if (_OnWriteRandomComplete != null)
+                        {
+                            _OnWriteRandomComplete(this, wdb.original_address, 0 == lparam);
+                        }
+                        //_OnWriteRandomComplete?.Invoke(this, wdb.original_address, 0 == lparam);
                     }
                     catch (Exception e)
                     {
@@ -436,7 +454,8 @@ namespace PLCDataAccess
                 case WorkThread.TM_READ_BLOCK:
                     try
                     {
-                        wdb = Marshal.PtrToStructure<WRDataBlock>(m.WParam);
+                        //wdb = Marshal.PtrToStructure<WRDataBlock>(m.WParam);//vs2017
+                        wdb = (WRDataBlock)Marshal.PtrToStructure(m.WParam, typeof(WRDataBlock));
                         Marshal.FreeHGlobal(m.WParam);
 
                         lparam = (int)m.LParam;
@@ -446,7 +465,11 @@ namespace PLCDataAccess
                             dat = new short[wdb.dat_count];
                             Array.Copy(wdb.data, dat, wdb.dat_count);
                         }
-                        _OnReadBlockComplete?.Invoke(this, wdb.original_address, dat);
+                        if (_OnReadBlockComplete != null)
+                        {
+                            _OnReadBlockComplete(this, wdb.original_address, dat);
+                        }
+                        //_OnReadBlockComplete?.Invoke(this, wdb.original_address, dat);
                     }
                     catch (Exception e)
                     {
@@ -456,10 +479,16 @@ namespace PLCDataAccess
                 case WorkThread.TM_WRITE_BLOCK:
                     try
                     {
-                        wdb = Marshal.PtrToStructure<WRDataBlock>(m.WParam);
+                        //wdb = Marshal.PtrToStructure<WRDataBlock>(m.WParam);//vs2017
+                        wdb = (WRDataBlock)Marshal.PtrToStructure(m.WParam, typeof(WRDataBlock));
                         Marshal.FreeHGlobal(m.WParam);
+
                         lparam = (int)m.LParam;
-                        _OnWriteBlockComplete?.Invoke(this, wdb.original_address, 0 == lparam);
+                        if (_OnWriteBlockComplete != null)
+                        {
+                            _OnWriteBlockComplete(this, wdb.original_address, 0 == lparam);
+                        }
+                        //_OnWriteBlockComplete?.Invoke(this, wdb.original_address, 0 == lparam);
                     }
                     catch (Exception e)
                     {
@@ -1251,7 +1280,8 @@ namespace PLCDataAccess
                                     short[] dat = null;
                                     if (op_flag)
                                     {
-                                        wdb = Marshal.PtrToStructure<WRDataBlock>(msg.wParam);
+                                        //wdb = Marshal.PtrToStructure<WRDataBlock>(msg.wParam);//vs2017
+                                        wdb = (WRDataBlock)Marshal.PtrToStructure(msg.wParam, typeof(WRDataBlock));
                                         dat = ReadRandom(autc, wdb.address, wdb.dat_count);
                                     }
                                     op_flag = op_flag && dat != null && dat.Length > 0;
@@ -1291,7 +1321,8 @@ namespace PLCDataAccess
                                     short[] dat = null;
                                     if (op_flag)
                                     {
-                                        wdb = Marshal.PtrToStructure<WRDataBlock>(msg.wParam);
+                                        //wdb = Marshal.PtrToStructure<WRDataBlock>(msg.wParam);//vs2017
+                                        wdb = (WRDataBlock)Marshal.PtrToStructure(msg.wParam, typeof(WRDataBlock));
                                         dat = ReadBlock(autc, wdb.address, wdb.dat_count);
                                     }
                                     op_flag = op_flag && dat != null && dat.Length > 0;
@@ -1331,7 +1362,8 @@ namespace PLCDataAccess
                                     int r = -1;
                                     if (op_flag)
                                     {
-                                        wdb = Marshal.PtrToStructure<WRDataBlock>(msg.wParam);
+                                        //wdb = Marshal.PtrToStructure<WRDataBlock>(msg.wParam);//vs2017
+                                        wdb = (WRDataBlock)Marshal.PtrToStructure(msg.wParam, typeof(WRDataBlock));
                                         short[] dat = new short[wdb.dat_count];
                                         Array.Copy(wdb.data, dat, wdb.dat_count);
                                         r = WriteRandom(autc, wdb.address, dat);
@@ -1364,7 +1396,8 @@ namespace PLCDataAccess
                                     int r = -1;
                                     if (op_flag)
                                     {
-                                        wdb = Marshal.PtrToStructure<WRDataBlock>(msg.wParam);
+                                        //wdb = Marshal.PtrToStructure<WRDataBlock>(msg.wParam);//vs2017
+                                        wdb = (WRDataBlock)Marshal.PtrToStructure(msg.wParam, typeof(WRDataBlock));
                                         short[] dat = new short[wdb.dat_count];
                                         Array.Copy(wdb.data, dat, wdb.dat_count);
                                         r = WriteBlock(autc, wdb.address, dat);

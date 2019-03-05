@@ -62,21 +62,21 @@ namespace DataAccess
             string s;
             if (flag == 0)
             {
-                s = $"PLC(logicalNO={plc.LogicalNo})连接成功。";
+                s = string.Format("PLC(logicalNO={0})连接成功。", plc.LogicalNo);
             }
             else
             if (flag == -1)
             {
-                s = $"PLC(logicalNO={plc.LogicalNo})读写异常，连接中断。";
+                s = string.Format("PLC(logicalNO={0})读写异常，连接中断。", plc.LogicalNo);
             }
             else
             if (flag == -2)
             {
-                s = $"PLC(logicalNO={plc.LogicalNo})连接关闭。";
+                s = string.Format("PLC(logicalNO={0})连接关闭。", plc.LogicalNo);
             }
             else
             {
-                s = $"PLC(logicalNO={plc.LogicalNo})连接失败。";
+                s = string.Format("PLC(logicalNO={0})连接失败。", plc.LogicalNo);
             }
             
             ListViewItem item = listView2.Items.Insert(0, DateTime.Now.ToString());
