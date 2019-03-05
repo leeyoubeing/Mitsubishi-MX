@@ -4,7 +4,7 @@
 MXObject.cs		实现MXObject对象  
 Win32API.cs		需要使用的相关Win32 API的声明
 
-一、使用方法
+一、使用方法  
 	1. 创建MXObject对象
 		plc = new MXObject(form, logicalno, password);
 	
@@ -35,14 +35,14 @@ Win32API.cs		需要使用的相关Win32 API的声明
 二、API
 	1. class PLC_Tag
 		a. 重要属性：
-			Parent: 对应的MXObject
-			Address: 地址
-			Tag_DataType: 数据类型
-			DataLength: 当数据类型为String时，字符串长度，其他数据类型不用设置长度
-			Quality: 数据正确与否
-			Value: 数据类型不为string时Tag的值
-			szValue: 数据类型为string时Tag的值
-			associatedCtrls: 与此Tag相关联的控件。Tag的值发生变化时方便更新控件
+			Parent: 对应的MXObject  
+			Address: 地址  
+			Tag_DataType: 数据类型  
+			DataLength: 当数据类型为String时，字符串长度，其他数据类型不用设置长度   
+			Quality: 数据正确与否  
+			Value: 数据类型不为string时Tag的值  
+			szValue: 数据类型为string时Tag的值  
+			associatedCtrls: 与此Tag相关联的控件。Tag的值发生变化时方便更新控件  
 		b. 构造函数
 			PLC_Tag(MXObject parent, string address, Tag_DataType data_type, int length = -1, Control[] controls = null)
 			当数据类型为string是，必须指定长度 length
