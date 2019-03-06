@@ -76,12 +76,12 @@ namespace PLCDataAccess
                 if (value != _tag_address)
                 {
                     _tag_address = value;
-                    string[] ss = SplitAddress(_tag_address);
-                    StrPart = ss[0];
-                    NumPart = Convert.ToInt32(ss[1]);
+                    SplitAddress(_tag_address, out StrPart, out NumPart, out AddressBase);
                 }
             }
         }
+        //地址是用10进制还是16进制
+        public byte AddressBase = 10;
         public MXObject Parent { get; set; }
         public Tag_DataType DataType { get; set; }
         //数据类型为字符串时，字符串长度（不包括\0)
@@ -185,26 +185,103 @@ namespace PLCDataAccess
             }
         }
         //把地址分成两部分：字符，数值
-        public static string[] SplitAddress(string address)
+        public static void SplitAddress(string address, out string strPLCTagType, out int nAddress, out byte addr_base)
         {
-            string[] res = new string[2];
-            res[0] = "";
-            res[1] = "";
-            int i = 0;
             string s = address.ToUpper();
-            while (i < s.Length)
+            string s1 = s.Substring(0, 1);
+            string s2, s3;
+            switch (s1)
             {
-                if ('A' <= s[i] && s[i] <= 'Z') res[0] += s[i];
-                else break;
-                i++;
+                case "A":
+                case "B":
+                case "D":
+                case "F":
+                case "L":
+                case "M":
+                case "R":
+                case "V":
+                case "W":
+                case "X":
+                case "Y":
+                    s2 = s.Substring(1);
+                    break;
+                case "Z":
+                    s3 = s.Substring(0, 2);
+                    if (s3.Equals("ZR"))
+                    {
+                        s1 = s3;
+                        s2 = s.Substring(2);
+                    }
+                    else
+                        s2 = s.Substring(1);
+                    break;
+                case "C":
+                    s3 = s.Substring(0, 2);
+                    switch (s3)
+                    {
+                        case "CC":
+                        case "CM":
+                        case "CN":
+                        case "CS":
+                        case "CT":
+                            s1 = s3;
+                            s2 = s.Substring(2);
+                            break;
+                        default:
+                            s2 = s.Substring(1);
+                            break;
+                    }
+                    break;
+                case "S":
+                    s3 = s.Substring(0, 2);
+                    switch (s3)
+                    {
+                        case "SB":
+                        case "SC":
+                        case "SD":
+                        case "SM":
+                        case "SN":
+                        case "SS":
+                        case "SW":
+                            s1 = s3;
+                            s2 = s.Substring(2);
+                            break;
+                        default:
+                            s2 = s.Substring(1);
+                            break;
+                    }
+                    break;
+                case "T":
+                    s3 = s.Substring(0, 2);
+                    switch(s3)
+                    {
+                        case "TC":
+                        case "TM":
+                        case "TN":
+                        case "TS":
+                        case "TT":
+                            s1 = s3;
+                            s2 = s.Substring(2);
+                            break;
+                        default:
+                            s2 = s.Substring(1);
+                            break;
+                    }
+                    break;
+                default:
+                    throw new Exception("Invalid Address.");
             }
-            while (i < s.Length)
+            strPLCTagType = s1;
+            if (s1.Equals("X") || s1.Equals("Y") || s1.Equals("B") || s1.Equals("W"))
             {
-                if ('0' <= s[i] && s[i] <= '9') res[1] += s[i];
-                else break;
-                i++;
+                nAddress = Convert.ToInt32(s2, 16);
+                addr_base = 16;
             }
-            return res;
+            else
+            {
+                nAddress = Convert.ToInt32(s2);
+                addr_base = 10;
+            }
         }
     }
 
@@ -296,8 +373,12 @@ namespace PLCDataAccess
 
         public const int BUFFER_SIZE = 1024;
 
-        public static string[] ValueTypeStr = { "B", "I2", "I4", "F", "S" };
-        public static string[] PLCTagTypeStr = { "X", "Y", "M", "SM", "D", "T", "C", "S" };
+        public static string[] ValueTypeStr = { "B", "I2", "U2", "I4", "U4", "F", "S" };
+        public static string[] PLCTagTypeStr = {
+            "X", "Y", "B", "W", "SB", "DX", "DY", "M", "SM", "L", "F", "V",
+            "D", "SD", "R", "ZR", "S", "SW", "TC", "TS", "TN", "CC",
+            "CS", "CN", "SC", "SS", "SN", "Z", "TT", "TM", "CT", "CM", "A"
+        };
 
         public int LogicalNo { get; set; }
         public string Password { get; set; }
@@ -358,7 +439,7 @@ namespace PLCDataAccess
                 WordCounts4Random++;
                 if (_tag.DataType == Tag_DataType.INT32 || _tag.DataType == Tag_DataType.UINT32 || _tag.DataType == Tag_DataType.FLOAT)
                 {
-                    AddrList4Random += "D" + (_tag.NumPart + 1).ToString() + "\n";
+                    AddrList4Random += _tag.StrPart + Convert.ToString(_tag.NumPart + 1, _tag.AddressBase) + "\n";
                     WordCounts4Random++;
                 }
                 else
@@ -367,7 +448,7 @@ namespace PLCDataAccess
                     int k = (_tag.DataLength + 1) / 2;
                     for (int i = 1; i < k; i++)
                     {
-                        AddrList4Random += "D" + (_tag.NumPart + i).ToString() + "\n";
+                        AddrList4Random += _tag.StrPart + Convert.ToString(_tag.NumPart + i, _tag.AddressBase) + "\n";
                         WordCounts4Random++;
                     }
                 }
@@ -524,11 +605,12 @@ namespace PLCDataAccess
         }
         #endregion "Stop"
         //把一个TAG增加到随机读的列表 (TagList4Random)
-        public bool AddTag(string address, Tag_DataType data_type, int length = -1)
+        public PLC_Tag AddTag(string address, Tag_DataType data_type, int length = -1)
         {
-            if (Connected) return false;
-            TagList4Random.Add(new PLC_Tag(this, address, data_type, length));
-            return true;
+            if (Connected) return null;
+            PLC_Tag atag = new PLC_Tag(this, address, data_type, length);
+            TagList4Random.Add(atag);
+            return atag;
         }
         //增加成块读到TagList4Block
         public bool AddBlock(string start_addr, int count, List<PLC_Tag> tags = null)
@@ -676,10 +758,13 @@ namespace PLCDataAccess
                     }
                     else
                     {
-                        string[] sss = PLC_Tag.SplitAddress(ss[i]);
+                        string s_addr;
+                        int n_addr;
+                        byte b_base;
+                        PLC_Tag.SplitAddress(ss[i], out s_addr, out n_addr, out b_base);
                         if (typeof(Int32) == t || typeof(UInt32) == t)
                         {
-                            addr += sss[0] + (Convert.ToUInt32(sss[1]) + 1).ToString() + "\n";
+                            addr += s_addr + Convert.ToString(n_addr + 1, b_base) + "\n";
                             short[] res = ToPLCWords((Int32)Values[i]);
                             res.CopyTo(dat, ndx);
                             ndx += 2;
@@ -687,7 +772,7 @@ namespace PLCDataAccess
                         else
                         if (typeof(float) == t || typeof(double) == t)
                         {
-                            addr += sss[0] + (Convert.ToUInt32(sss[1]) + 1).ToString() + "\n";
+                            addr += s_addr + Convert.ToString(n_addr + 1, b_base) + "\n";
                             short[] res = ToPLCWords((float)Values[i]);
                             res.CopyTo(dat, ndx);
                             ndx += 2;
@@ -699,10 +784,9 @@ namespace PLCDataAccess
                             res.CopyTo(dat, ndx);
                             int k = res.Length;
                             ndx += k;
-                            uint tmp = Convert.ToUInt32(sss[1]);
                             for (int j = 1; j < k; j++)
                             {
-                                addr += sss[0] + (tmp + j).ToString() + "\n";
+                                addr += s_addr + Convert.ToString(n_addr + 1, b_base) + "\n";
                             }
                         }
                         else
@@ -865,92 +949,57 @@ namespace PLCDataAccess
             {
                 string[] ss;
                 short n = 0;
-                int i = 0, len = 0; ;
-                string s1 = "", s2 = "";
                 bool flag;
                 foreach (Control ctrl in control.Controls)
                 {
                     if (null != ctrl.Tag)
                     {
-                        ss = ctrl.Tag.ToString().ToUpper().Split(':');
+                        ss = ctrl.Tag.ToString().ToUpper().Split(':');//format--logicalno:datatype:address:length
                         flag = ss.Length >= 3;
                         if (flag)
                         {
                             flag = short.TryParse(ss[0], out n);//n is logical number
-                            if (flag)
-                            {
-                                flag = MXObject.ValueTypeStr.Contains(ss[1]);//ss[1] is data type (bit, short, int, float ...)
-                                if (flag)
-                                {
-                                    s1 = "";//characters part
-                                    i = 0;
-                                    while (i < ss[2].Length)
-                                    {
-                                        if (ss[2][i] >= 'A' && ss[2][i] <= 'Z')
-                                        {
-                                            s1 += ss[2][i];
-                                            i++;
-                                        }
-                                        else
-                                            break;
-                                    }
-                                    flag = MXObject.PLCTagTypeStr.Contains(s1);//s1 is plc data type (M, SM, D, T, C ...)
-                                    if (flag)
-                                    {
-                                        s2 = "";//numbers part
-                                        while (i < ss[2].Length)
-                                        {
-                                            if (ss[2][i] >= '0' && ss[2][i] <= '9')
-                                            {
-                                                s2 += ss[2][i];
-                                                i++;
-                                            }
-                                            else
-                                                break;
-                                        }
-                                        flag = int.TryParse(s2, out i); //i is address in number
-                                    }
-                                }
-                            }
                         }
                         if (flag)
                         {
-                            s2 = s1 + s2;//tag address (Dnnnn, Mnnn ...)
                             Tag_DataType dType;
-                            if (ss[1] == "B")
+                            int len = -1;
+                            switch (ss[1])
                             {
-                                dType = Tag_DataType.BIT;
+                                case "B":
+                                    dType = Tag_DataType.BIT;
+                                    break;
+                                case "I2":
+                                    dType = Tag_DataType.INT16;
+                                    break;
+                                case "U2":
+                                    dType = Tag_DataType.UINT16;
+                                    break;
+                                case "I4":
+                                    dType = Tag_DataType.INT32;
+                                    break;
+                                case "U4":
+                                    dType = Tag_DataType.UINT32;
+                                    break;
+                                case "F":
+                                    dType = Tag_DataType.FLOAT;
+                                    break;
+                                case "S":
+                                    dType = Tag_DataType.STRING;
+                                    if (ss.Length > 3)
+                                    {
+                                        flag = int.TryParse(ss[3], out len);
+                                        if (!flag) len = 32;
+                                    }
+                                    else
+                                    {
+                                        len = 32;
+                                    }
+                                    break;
+                                default:
+                                    dType = Tag_DataType.UNKNOWN;
+                                    break;
                             }
-                            else
-                            if (ss[1] == "I2")
-                            {
-                                dType = Tag_DataType.INT16;
-                            }
-                            else
-                            if (ss[1] == "I4")
-                            {
-                                dType = Tag_DataType.INT32;
-                            }
-                            else
-                            if (ss[1] == "F")
-                            {
-                                dType = Tag_DataType.FLOAT;
-                            }
-                            else
-                            if (ss[1] == "S")
-                            {
-                                dType = Tag_DataType.STRING;
-                                if (ss.Length > 3)
-                                {
-                                    flag = int.TryParse(ss[3], out len);
-                                    if (!flag) len = 32;
-                                }
-                                else
-                                {
-                                    len = 32;
-                                }
-                            }
-                            else dType = Tag_DataType.UNKNOWN;
                             if (dType != Tag_DataType.UNKNOWN)
                             {
                                 MXObject plc = null;
@@ -970,7 +1019,7 @@ namespace PLCDataAccess
                                 PLC_Tag tag = null;
                                 foreach (PLC_Tag _tag in plc.TagList4Random)
                                 {
-                                    if (_tag.Address == s2 && _tag.DataType == dType)
+                                    if (_tag.Address == ss[2] && _tag.DataType == dType)
                                     {
                                         tag = _tag;
                                         break;
@@ -978,16 +1027,10 @@ namespace PLCDataAccess
                                 }
                                 if (tag == null)
                                 {
-                                    tag = new PLC_Tag
-                                    { 
-                                        DataType = dType,
-                                        Address = s2,
-                                    };
-                                    if (dType == Tag_DataType.STRING) tag.DataLength = len;
-                                    else tag.DataLength = -1;
-                                    plc.TagList4Random.Add(tag);
+                                    tag = plc.AddTag(ss[2], dType, len);
                                 }
-                                tag.associatedCtrls.Add(ctrl);
+                                if (tag != null)
+                                    tag.associatedCtrls.Add(ctrl);
                             }
                         }
                     }
@@ -1550,9 +1593,12 @@ namespace PLCDataAccess
         /// <returns>解析数据的个数</returns>
         private int ResolveBlockData(short[] dat, string start_addr, List<PLC_Tag> tags)
         {
-            int ndx = 0, k = 0 ;
-            string[] addr = PLC_Tag.SplitAddress(start_addr);
-            int first_addr = Convert.ToInt32(addr[1]);
+            int first_addr;
+            string s_addr;
+            byte b_base;
+            int ndx = 0, k = 0;
+            PLC_Tag.SplitAddress(start_addr, out s_addr, out first_addr, out b_base);
+            
             foreach(PLC_Tag _tag in tags)
             {
                 ndx = _tag.NumPart - first_addr;
