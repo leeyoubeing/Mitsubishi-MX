@@ -73,9 +73,9 @@ Win32API.cs		需要使用的相关Win32 API的声明
 		b. 构造函数
 			MXObject(Form Owner, int logicalNo, string password)
 			
-		c. bool AddTag(string address, Tag_DataType data_type, int length = -1)
+		c. PLC_Tag AddTag(string address, Tag_DataType data_type, int length = -1)
 			增加一个Tag到TagList4Random。当数据类型为string时，必须设定length
-			当Connected为True时，返回false
+			当Connected为True时，返回null
 			
 		d. bool AddBlock(string start_addr, int count, List<PLC_Tag> tags = null)
 			增加一个BlockTagInfo到TagList4Block。调用此函数前，要先产生一个taglist
