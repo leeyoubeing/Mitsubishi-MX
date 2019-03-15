@@ -82,8 +82,14 @@ namespace DataAccess
             ListViewItem item = listView2.Items.Insert(0, DateTime.Now.ToString());
             item.SubItems.Add(s);
         }
-        private void OnUpdateTagValue(MXObject plc, int list_type)
+        private void OnUpdateTagValue(MXObject plc, int list_type, int err_code)
         {
+            if (0 != err_code)
+            {
+                ListViewItem item = listView2.Items.Insert(0, DateTime.Now.ToString());
+                item.SubItems.Add(string.Format("plc({0})循环读出错({1}", plc.LogicalNo, plc.GetErrorMessage(err_code)));
+                return;
+            }
             if (0 == list_type)
             {
                 foreach (PLC_Tag _tag in plc.TagList4Random)
@@ -111,12 +117,13 @@ namespace DataAccess
                 textBox17.Text = s.TrimEnd(',') ;
             }
         }
-        private void OnReadRandom(MXObject Sender, string addr_list, short[] dat)
+        private void OnReadRandom(MXObject Sender, string addr_list, short[] dat, int err_code)
         {
-            if (dat == null)
+            if (0 != err_code)
             {
+                string s = Sender.GetErrorMessage(err_code);
                 ListViewItem item = listView2.Items.Insert(0, DateTime.Now.ToString());
-                item.SubItems.Add(String.Format("随机读数据失败（PLC logicalNO={0}）", Sender.LogicalNo));
+                item.SubItems.Add(String.Format("随机读数据失败（PLC logicalNO={0}）({1})", Sender.LogicalNo, s));
             }
             else
             {
@@ -130,12 +137,13 @@ namespace DataAccess
                 textBox16.Text = s.TrimEnd(',');
             }
         }
-        private void OnReadBlock(MXObject Sender, string start_addr, short[] dat)
+        private void OnReadBlock(MXObject Sender, string start_addr, short[] dat, int err_code)
         {
-            if (dat == null)
+            if (0 != err_code)
             {
+                string s = Sender.GetErrorMessage(err_code);
                 ListViewItem item = listView2.Items.Insert(0, DateTime.Now.ToString());
-                item.SubItems.Add(String.Format("读数据块失败（PLC logicalNO={0}）", Sender.LogicalNo));
+                item.SubItems.Add(String.Format("读数据块失败（PLC logicalNO={0}）({1})", Sender.LogicalNo, s));
             }
             else
             {
@@ -149,30 +157,30 @@ namespace DataAccess
                 textBox15.Text = s.TrimEnd(',');
             }
         }
-        private void OnWriteRandom(MXObject Sender, string addr_list, bool flag)
+        private void OnWriteRandom(MXObject Sender, string addr_list, int err_code)
         {
             string s;
-            if (flag)
+            if (0 == err_code)
             {
                 s = string.Format("随机写数据成功(PLC logicalNo={0})", Sender.LogicalNo);
             }
             else
             {
-                s = string.Format("随机写数据失败(PLC logicalNo={0})", Sender.LogicalNo);
+                s = string.Format("随机写数据失败(PLC logicalNo={0})({1})", Sender.LogicalNo, Sender.GetErrorMessage(err_code));
             }
             ListViewItem item = listView2.Items.Insert(0, DateTime.Now.ToString());
             item.SubItems.Add(s);
         }
-        private void OnWriteBlock(MXObject Sender, string start_addr, bool flag)
+        private void OnWriteBlock(MXObject Sender, string start_addr, int err_code)
         {
             string s;
-            if (flag)
+            if (0 == err_code)
             {
                 s = string.Format("写数据块成功(PLC logicalNo={0})", Sender.LogicalNo);
             }
             else
             {
-                s = string.Format("写数据块失败(PLC logicalNo={0})", Sender.LogicalNo);
+                s = string.Format("写数据块失败(PLC logicalNo={0})({1})", Sender.LogicalNo, Sender.GetErrorMessage(err_code));
             }
             ListViewItem item = listView2.Items.Insert(0, DateTime.Now.ToString());
             item.SubItems.Add(s);

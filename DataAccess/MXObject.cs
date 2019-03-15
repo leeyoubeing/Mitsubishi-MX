@@ -301,7 +301,7 @@ namespace PLCDataAccess
                 _OnTMConnect -= value;// new ConnectEventHandler(value);
             }
         }
-        public delegate void UpdateTagValueHandler(MXObject Sender, int TagListType);
+        public delegate void UpdateTagValueHandler(MXObject Sender, int TagListType, int error_code);
         private UpdateTagValueHandler _OnUpdateTagValue;
         public event UpdateTagValueHandler OnUpdateTagValue
         {
@@ -315,7 +315,7 @@ namespace PLCDataAccess
             }
         }
 
-        public delegate void ReadRandomCompleteHandler(MXObject Sender, string AddressList, short[] Values);
+        public delegate void ReadRandomCompleteHandler(MXObject Sender, string AddressList, short[] Values, int error_code);
         private ReadRandomCompleteHandler _OnReadRandomComplete;
         public event ReadRandomCompleteHandler OnReadRandomComplete
         {
@@ -329,7 +329,7 @@ namespace PLCDataAccess
             }
         }
 
-        public delegate void ReadBlockCompleteHandler(MXObject Sender, string StartAddress, short[] Values);
+        public delegate void ReadBlockCompleteHandler(MXObject Sender, string StartAddress, short[] Values, int error_code);
         private ReadBlockCompleteHandler _OnReadBlockComplete;
         public event ReadBlockCompleteHandler OnReadBlockComplete
         {
@@ -343,7 +343,7 @@ namespace PLCDataAccess
             }
         }
 
-        public delegate void WriteRandomCompleteHandler(MXObject Sender, string AddressList, bool Succeeded);
+        public delegate void WriteRandomCompleteHandler(MXObject Sender, string AddressList, int error_code);
         private WriteRandomCompleteHandler _OnWriteRandomComplete;
         public event WriteRandomCompleteHandler OnWriteRandomComplete
         {
@@ -357,7 +357,7 @@ namespace PLCDataAccess
             }
         }
 
-        public delegate void WriteBlockCompleteHandler(MXObject Sender, string StartAddress, bool Succeeded);
+        public delegate void WriteBlockCompleteHandler(MXObject Sender, string StartAddress, int error_code);
         private WriteBlockCompleteHandler _OnWriteBlockComplete;
         public event WriteBlockCompleteHandler OnWriteBlockComplete
         {
@@ -406,6 +406,8 @@ namespace PLCDataAccess
 
         private WorkThread _thread = null;
 
+        private ActSupportMsgLib.ActSupportMsg IMsg = new ActSupportMsgLib.ActSupportMsgClass();
+
         #region "Constructor"
         /// <summary>
         /// 构造函数
@@ -428,6 +430,19 @@ namespace PLCDataAccess
             Stop();
         }
         #endregion "destructor"
+
+        public string GetErrorMessage(int err_code)
+        {
+            try
+            {
+                int r = IMsg.GetErrorMessage(err_code, out string msg);
+                return r == 0 ? msg : "";
+            }
+            catch (Exception e)
+            {
+                return e.Message;
+            }
+        }
         #region "InitialAddressString"
         private void InitialAddressString()
         {
@@ -484,9 +499,9 @@ namespace PLCDataAccess
                 case WorkThread.TM_NORMAL_READ:
                     if (_OnUpdateTagValue != null)
                     {
-                        _OnUpdateTagValue(this, (int)m.WParam);
+                        _OnUpdateTagValue(this, (int)m.WParam, (int)m.LParam);
                     }
-                    //_OnUpdateTagValue?.Invoke(this, (int)m.WParam);
+                    //_OnUpdateTagValue?.Invoke(this, (int)m.WParam, (int)m.LParam);
                     break;
                 case WorkThread.TM_READ_RANDOM:
                     try
@@ -504,9 +519,9 @@ namespace PLCDataAccess
                         }
                         if (_OnReadRandomComplete != null)
                         {
-                            _OnReadRandomComplete(this, wdb.original_address, dat);
+                            _OnReadRandomComplete(this, wdb.original_address, dat, (int)m.LParam);
                         }
-                        //_OnReadRandomComplete?.Invoke(this, wdb.original_address, dat);
+                        //_OnReadRandomComplete?.Invoke(this, wdb.original_address, dat, (int)m.LParam);
                     }
                     catch (Exception e)
                     {
@@ -523,9 +538,9 @@ namespace PLCDataAccess
                         lparam = (int)m.LParam;
                         if (_OnWriteRandomComplete != null)
                         {
-                            _OnWriteRandomComplete(this, wdb.original_address, 0 == lparam);
+                            _OnWriteRandomComplete(this, wdb.original_address, lparam);
                         }
-                        //_OnWriteRandomComplete?.Invoke(this, wdb.original_address, 0 == lparam);
+                        //_OnWriteRandomComplete?.Invoke(this, wdb.original_address, lparam);
                     }
                     catch (Exception e)
                     {
@@ -541,16 +556,16 @@ namespace PLCDataAccess
 
                         lparam = (int)m.LParam;
                         short[] dat = null;
-                        if (lparam >= 0)//read succeeded
+                        if (lparam == 0)//read succeeded
                         {
                             dat = new short[wdb.dat_count];
                             Array.Copy(wdb.data, dat, wdb.dat_count);
                         }
                         if (_OnReadBlockComplete != null)
                         {
-                            _OnReadBlockComplete(this, wdb.original_address, dat);
+                            _OnReadBlockComplete(this, wdb.original_address, dat, lparam);
                         }
-                        //_OnReadBlockComplete?.Invoke(this, wdb.original_address, dat);
+                        //_OnReadBlockComplete?.Invoke(this, wdb.original_address, dat, lparam);
                     }
                     catch (Exception e)
                     {
@@ -567,9 +582,9 @@ namespace PLCDataAccess
                         lparam = (int)m.LParam;
                         if (_OnWriteBlockComplete != null)
                         {
-                            _OnWriteBlockComplete(this, wdb.original_address, 0 == lparam);
+                            _OnWriteBlockComplete(this, wdb.original_address, lparam);
                         }
-                        //_OnWriteBlockComplete?.Invoke(this, wdb.original_address, 0 == lparam);
+                        //_OnWriteBlockComplete?.Invoke(this, wdb.original_address, lparam);
                     }
                     catch (Exception e)
                     {
@@ -712,7 +727,7 @@ namespace PLCDataAccess
                 //out of memory
                 return false;
             }
-            if (Win32API.PostThreadMessage(_thread.ThreadId, WorkThread.TM_READ_BLOCK, buff, (IntPtr)count))
+            if (Win32API.PostThreadMessage(_thread.ThreadId, WorkThread.TM_READ_BLOCK, buff, IntPtr.Zero))
             {
                 return true;
             }
@@ -859,7 +874,7 @@ namespace PLCDataAccess
             {
                 return false;
             }
-            if (Win32API.PostThreadMessage(_thread.ThreadId, WorkThread.TM_WRITE_BLOCK, buff, (IntPtr)Values.Length))
+            if (Win32API.PostThreadMessage(_thread.ThreadId, WorkThread.TM_WRITE_BLOCK, buff, IntPtr.Zero))
             {
                 return true;
             }
@@ -1222,6 +1237,10 @@ namespace PLCDataAccess
         public const Int32 TM_READ_BLOCK = TM_WRITE_RANDOM + 1;
         public const Int32 TM_WRITE_BLOCK = TM_READ_BLOCK + 1;
         public const Int32 CONNECTION_BREAK = -1;
+        public const Int32 ERR_DEVICE_FORMAT = 0x01802001;
+        public const Int32 ERR_DEVICE_NUMBER = 0x01802002;
+        public const Int32 ERR_DEVICE_BLOCK = 0x01802006;
+
 
         private IntPtr _owner = IntPtr.Zero;
         /// <summary>
@@ -1257,8 +1276,8 @@ namespace PLCDataAccess
                 ActPassword = mxobj.Password
             };
             int conn_flag = -1;
+            int err_code = 0;
             MSG msg = new MSG();
-            bool op_flag;
             while (!(mxobj.StopEvent.WaitOne(0)))
             {
                 if (0 == conn_flag)
@@ -1266,20 +1285,24 @@ namespace PLCDataAccess
                     //读数据
                     if(mxobj.AddrList4Random.Length > 0)
                     {
-                        short[] dat = ReadRandom(autc, mxobj.AddrList4Random, mxobj.WordCounts4Random);
-                        if (dat != null && dat.Length > 0)
+                        short[] dat = ReadRandom(autc, mxobj.AddrList4Random, mxobj.WordCounts4Random, out err_code);
+                        if (err_code == 0)
                         {
                             ResolveData(dat, mxobj.TagList4Random);
                             Win32API.SendMessage(_owner, TM_NORMAL_READ, IntPtr.Zero, IntPtr.Zero);
                         }
                         else
                         {
-                            autc.Close();
-                            conn_flag = -1;
+                            Win32API.SendMessage(_owner, TM_NORMAL_READ, IntPtr.Zero, (IntPtr)err_code);
+                            if (err_code != ERR_DEVICE_FORMAT && err_code != ERR_DEVICE_NUMBER && err_code != ERR_DEVICE_BLOCK)
+                            {
+                                autc.Close();
+                                conn_flag = -1;
 
-                            Win32API.SendMessage(_owner, TM_CONNECTION,
-                                (IntPtr)CONNECTION_BREAK,
-                                (null != dat) ? ((IntPtr)(-1)) : ((IntPtr)(-2)));
+                                Win32API.SendMessage(_owner, TM_CONNECTION,
+                                    (IntPtr)CONNECTION_BREAK,
+                                    (null != dat) ? ((IntPtr)(-1)) : ((IntPtr)(-2)));
+                            }
                         }
                     }
                     if (mxobj.TagList4Block.Count > 0)
@@ -1289,22 +1312,27 @@ namespace PLCDataAccess
                             if (0 != conn_flag) break;
                             if (mxobj.StopEvent.WaitOne(0)) goto finally_proc;
 
-                            short[] dat = ReadBlock(autc, _info.Address, _info.Count);
-                            if ( null != dat && dat.Length > 0)
+                            short[] dat = ReadBlock(autc, _info.Address, _info.Count, out err_code);
+                            if ( err_code == 0 )
                             {
                                 ResolveBlockData(dat, _info.Address, _info.Tags);
                                 //Win32API.SendMessage(_owner, TM_NORMAL_READ, (IntPtr)1, IntPtr.Zero);
                             }
                             else
                             {
-                                autc.Close();
-                                conn_flag = -1;
-                                Win32API.SendMessage(_owner, TM_CONNECTION,
-                                    (IntPtr)CONNECTION_BREAK,
-                                    (null != dat) ? ((IntPtr)(-1)) : ((IntPtr)(-2)));
+                                Win32API.SendMessage(_owner, TM_NORMAL_READ, (IntPtr)1, (IntPtr)err_code);
+                                if (err_code != ERR_DEVICE_FORMAT && err_code != ERR_DEVICE_NUMBER && err_code != ERR_DEVICE_BLOCK)
+                                {
+                                    autc.Close();
+                                    conn_flag = -1;
+                                    Win32API.SendMessage(_owner, TM_CONNECTION,
+                                        (IntPtr)CONNECTION_BREAK,
+                                        (null != dat) ? ((IntPtr)(-1)) : ((IntPtr)(-2)));
+                                }
+                                break;
                             }
                         }
-                        if (0 == conn_flag)
+                        if (0 == err_code)
                         {
                             Win32API.SendMessage(_owner, TM_NORMAL_READ, (IntPtr)1, IntPtr.Zero);
                         }
@@ -1313,7 +1341,8 @@ namespace PLCDataAccess
                     while (0 != Win32API.PeekMessage(ref msg, IntPtr.Zero, 0, 0, Win32API.PM_REMOVE))
                     {
                         if (mxobj.StopEvent.WaitOne(0)) goto finally_proc;
-                        op_flag = 0 == conn_flag;
+                        if (0 != conn_flag) break;
+                        err_code = -2;//indicate no connection
                         WRDataBlock wdb;
                         switch (msg.message)
                         {
@@ -1321,14 +1350,10 @@ namespace PLCDataAccess
                                 try
                                 {
                                     short[] dat = null;
-                                    if (op_flag)
-                                    {
-                                        //wdb = Marshal.PtrToStructure<WRDataBlock>(msg.wParam);//vs2017
-                                        wdb = (WRDataBlock)Marshal.PtrToStructure(msg.wParam, typeof(WRDataBlock));
-                                        dat = ReadRandom(autc, wdb.address, wdb.dat_count);
-                                    }
-                                    op_flag = op_flag && dat != null && dat.Length > 0;
-                                    if (op_flag)
+                                    //wdb = Marshal.PtrToStructure<WRDataBlock>(msg.wParam);//vs2017
+                                    wdb = (WRDataBlock)Marshal.PtrToStructure(msg.wParam, typeof(WRDataBlock));
+                                    dat = ReadRandom(autc, wdb.address, wdb.dat_count, out err_code);
+                                    if (0 == err_code)
                                     {
                                         IntPtr tmp = msg.wParam;
                                         for (int i = 0; i < dat.Length; i++)
@@ -1340,10 +1365,9 @@ namespace PLCDataAccess
                                     }
                                     else
                                     {
-                                        Win32API.SendMessage(_owner, TM_READ_RANDOM,
-                                            msg.wParam,
-                                            (null != dat) ? ((IntPtr)(-1)) : ((IntPtr)(-2)));
-                                        if (conn_flag == 0)
+                                        Win32API.SendMessage(_owner, TM_READ_RANDOM, msg.wParam, (IntPtr)err_code);
+                                        if (ERR_DEVICE_FORMAT != err_code && ERR_DEVICE_NUMBER != err_code &&
+                                            ERR_DEVICE_BLOCK != err_code)
                                         {
                                             autc.Close();
                                             conn_flag = -1;
@@ -1362,14 +1386,10 @@ namespace PLCDataAccess
                                 try
                                 {
                                     short[] dat = null;
-                                    if (op_flag)
-                                    {
-                                        //wdb = Marshal.PtrToStructure<WRDataBlock>(msg.wParam);//vs2017
-                                        wdb = (WRDataBlock)Marshal.PtrToStructure(msg.wParam, typeof(WRDataBlock));
-                                        dat = ReadBlock(autc, wdb.address, wdb.dat_count);
-                                    }
-                                    op_flag = op_flag && dat != null && dat.Length > 0;
-                                    if (op_flag)
+                                    //wdb = Marshal.PtrToStructure<WRDataBlock>(msg.wParam);//vs2017
+                                    wdb = (WRDataBlock)Marshal.PtrToStructure(msg.wParam, typeof(WRDataBlock));
+                                    dat = ReadBlock(autc, wdb.address, wdb.dat_count, out err_code);
+                                    if (0 == err_code)
                                     {
                                         IntPtr tmp = msg.wParam;
                                         for (int i = 0; i < dat.Length; i++)
@@ -1381,10 +1401,9 @@ namespace PLCDataAccess
                                     }
                                     else
                                     {
-                                        Win32API.SendMessage(_owner, TM_READ_BLOCK,
-                                            msg.wParam,
-                                            (null != dat) ? ((IntPtr)(-1)) : ((IntPtr)(-2)));
-                                        if (conn_flag == 0)
+                                        Win32API.SendMessage(_owner, TM_READ_BLOCK, msg.wParam, (IntPtr)err_code);
+                                        if (ERR_DEVICE_FORMAT != err_code && ERR_DEVICE_NUMBER != err_code &&
+                                            ERR_DEVICE_BLOCK != err_code)
                                         {
                                             autc.Close();
                                             conn_flag = -1;
@@ -1402,30 +1421,20 @@ namespace PLCDataAccess
                             case TM_WRITE_RANDOM:
                                 try
                                 {
-                                    int r = -1;
-                                    if (op_flag)
+                                    //wdb = Marshal.PtrToStructure<WRDataBlock>(msg.wParam);//vs2017
+                                    wdb = (WRDataBlock)Marshal.PtrToStructure(msg.wParam, typeof(WRDataBlock));
+                                    short[] dat = new short[wdb.dat_count];
+                                    Array.Copy(wdb.data, dat, wdb.dat_count);
+                                    err_code = WriteRandom(autc, wdb.address, dat);
+
+                                    Win32API.SendMessage(_owner, TM_WRITE_RANDOM, msg.wParam, (IntPtr)err_code);
+                                    if (err_code != 0 && err_code != ERR_DEVICE_FORMAT && 
+                                        ERR_DEVICE_BLOCK != err_code && err_code != ERR_DEVICE_NUMBER)
                                     {
-                                        //wdb = Marshal.PtrToStructure<WRDataBlock>(msg.wParam);//vs2017
-                                        wdb = (WRDataBlock)Marshal.PtrToStructure(msg.wParam, typeof(WRDataBlock));
-                                        short[] dat = new short[wdb.dat_count];
-                                        Array.Copy(wdb.data, dat, wdb.dat_count);
-                                        r = WriteRandom(autc, wdb.address, dat);
-                                    }
-                                    op_flag = op_flag && (r == 0);
-                                    if (op_flag)
-                                    {
-                                        Win32API.SendMessage(_owner, TM_WRITE_RANDOM, msg.wParam, IntPtr.Zero);
-                                    }
-                                    else
-                                    {
-                                        Win32API.SendMessage(_owner, TM_WRITE_RANDOM, msg.wParam, (IntPtr)r);
-                                        if (0 == conn_flag)
-                                        {
-                                            conn_flag = -1;
-                                            autc.Close();
-                                            Win32API.SendMessage(_owner, TM_CONNECTION,
-                                                (IntPtr)CONNECTION_BREAK, (IntPtr)r);
-                                        }
+                                        conn_flag = -1;
+                                        autc.Close();
+                                        Win32API.SendMessage(_owner, TM_CONNECTION,
+                                            (IntPtr)CONNECTION_BREAK, (IntPtr)err_code);
                                     }
                                 }
                                 catch
@@ -1436,30 +1445,20 @@ namespace PLCDataAccess
                             case TM_WRITE_BLOCK:
                                 try
                                 {
-                                    int r = -1;
-                                    if (op_flag)
+                                    //wdb = Marshal.PtrToStructure<WRDataBlock>(msg.wParam);//vs2017
+                                    wdb = (WRDataBlock)Marshal.PtrToStructure(msg.wParam, typeof(WRDataBlock));
+                                    short[] dat = new short[wdb.dat_count];
+                                    Array.Copy(wdb.data, dat, wdb.dat_count);
+                                    err_code = WriteBlock(autc, wdb.address, dat);
+
+                                    Win32API.SendMessage(_owner, TM_WRITE_BLOCK, msg.wParam, (IntPtr)err_code);
+                                    if (err_code != 0 && err_code != ERR_DEVICE_FORMAT &&
+                                        err_code != ERR_DEVICE_NUMBER && ERR_DEVICE_BLOCK != err_code)
                                     {
-                                        //wdb = Marshal.PtrToStructure<WRDataBlock>(msg.wParam);//vs2017
-                                        wdb = (WRDataBlock)Marshal.PtrToStructure(msg.wParam, typeof(WRDataBlock));
-                                        short[] dat = new short[wdb.dat_count];
-                                        Array.Copy(wdb.data, dat, wdb.dat_count);
-                                        r = WriteBlock(autc, wdb.address, dat);
-                                    }
-                                    op_flag = op_flag && (r == 0);
-                                    if (op_flag)
-                                    {
-                                        Win32API.SendMessage(_owner, TM_WRITE_BLOCK, msg.wParam, IntPtr.Zero);
-                                    }
-                                    else
-                                    {
-                                        Win32API.SendMessage(_owner, TM_WRITE_BLOCK, msg.wParam, (IntPtr)r);
-                                        if (0 == conn_flag)
-                                        {
-                                            conn_flag = -1;
-                                            autc.Close();
-                                            Win32API.SendMessage(_owner, TM_CONNECTION,
-                                                (IntPtr)CONNECTION_BREAK, (IntPtr)r);
-                                        }
+                                        conn_flag = -1;
+                                        autc.Close();
+                                        Win32API.SendMessage(_owner, TM_CONNECTION,
+                                            (IntPtr)CONNECTION_BREAK, (IntPtr)err_code);
                                     }
                                 }
                                 catch
@@ -1513,19 +1512,21 @@ namespace PLCDataAccess
         /// <param name="act">ActUtlTypeClass</param>
         /// <param name="addrs">以\n分隔的地址列表</param>
         /// <param name="number">tag个数</param>
+        /// <param name="err_code">ReadDeviceRandom2的返回码</param>
         /// <returns>返回读取的数据，读取失败返回空数组</returns>
-        private short[] ReadRandom(ActUtlTypeLib.ActUtlTypeClass act, string addrs, int number)
+        private short[] ReadRandom(ActUtlTypeLib.ActUtlTypeClass act, string addrs, int number, out int err_code)
         {
             try
             {
                 short[] data = new short[number];
-                int r = act.ReadDeviceRandom2(addrs, number, out data[0]);
-                if (0 != r)
+                err_code = act.ReadDeviceRandom2(addrs, number, out data[0]);
+                if (0 != err_code)
                     return new short[] { };
                 return data;
             }
             catch
             {
+                err_code = -1;
                 return null;
             }
         }
@@ -1537,19 +1538,21 @@ namespace PLCDataAccess
         /// <param name="act">ActUtlTypeClass</param>
         /// <param name="address">起始地址</param>
         /// <param name="number">数据个数</param>
+        /// <param name="err_code">ReadDeviceBlock2的返回码</param>
         /// <returns>返回读取的数据，读取失败返回空数组</returns>
-        private short[] ReadBlock(ActUtlTypeLib.ActUtlTypeClass act, string address, int number)
+        private short[] ReadBlock(ActUtlTypeLib.ActUtlTypeClass act, string address, int number, out int err_code)
         {
             try
             {
                 short[] data = new short[number];
-                int r = act.ReadDeviceBlock2(address, number, out data[0]);
-                if (0 != r)
+                err_code = act.ReadDeviceBlock2(address, number, out data[0]);
+                if (0 != err_code)
                     return new short[] { };
                 return data;
             }
             catch
             {
+                err_code = -1;
                 return null;
             }
         }
