@@ -62,6 +62,15 @@ namespace PLCDataAccess
 
     public class PLC_Tag
     {
+        public static string[] PLCTagTypeBit =
+        {
+            "X", "Y", "M", "L", "F", "V", "S", "B", "SB", "TS",
+            "TC", "CS", "CC", "SS", "SC", "SM", "FX", "FY" ,
+        };
+        public static string[] PLCTagTypeRegister =
+        {
+            "T", "TN", "C", "CN", "ST", "SN", "D", "W", "SW", "SD", "R", "ZR", "Z", "FD", "A",
+        };
         public const byte QUALITY_GOOD = 0;
         public const byte QUALITY_BAD = 1;
         private string _tag_address;
@@ -184,95 +193,42 @@ namespace PLCDataAccess
                 default: return "data type error";
             }
         }
+        public static bool IsHexAddress(string str_type)
+        {
+            string s = str_type.ToUpper();
+            return s == "X" || s == "Y" || s == "B" || s == "W" || s == "FX" || s == "FY" || s == "SB" || s == "SW";
+        }
+        public static bool IsBitTag(string str_type)
+        {
+            return PLCTagTypeBit.Contains(str_type);
+        }
         //把地址分成两部分：字符，数值
         public static void SplitAddress(string address, out string strPLCTagType, out int nAddress, out byte addr_base)
         {
+            if (address.Length < 2)
+                throw new Exception("Invalid plc tag address");
+
+            int n;
+            if (address.Length >= 3) n = 2;
+            else n = 1;
+
             string s = address.ToUpper();
-            string s1 = s.Substring(0, 1);
-            string s2, s3;
-            switch (s1)
+            string s1 = "", s2 = "";
+
+            for (int i = n; i > 0; i--)
             {
-                case "A":
-                case "B":
-                case "D":
-                case "F":
-                case "L":
-                case "M":
-                case "R":
-                case "V":
-                case "W":
-                case "X":
-                case "Y":
-                    s2 = s.Substring(1);
+                s1 = s.Substring(0, i);
+                if (PLCTagTypeBit.Contains(s1) || PLCTagTypeRegister.Contains(s1))
+                {
+                    s2 = s.Substring(i);
                     break;
-                case "Z":
-                    s3 = s.Substring(0, 2);
-                    if (s3.Equals("ZR"))
-                    {
-                        s1 = s3;
-                        s2 = s.Substring(2);
-                    }
-                    else
-                        s2 = s.Substring(1);
-                    break;
-                case "C":
-                    s3 = s.Substring(0, 2);
-                    switch (s3)
-                    {
-                        case "CC":
-                        case "CM":
-                        case "CN":
-                        case "CS":
-                        case "CT":
-                            s1 = s3;
-                            s2 = s.Substring(2);
-                            break;
-                        default:
-                            s2 = s.Substring(1);
-                            break;
-                    }
-                    break;
-                case "S":
-                    s3 = s.Substring(0, 2);
-                    switch (s3)
-                    {
-                        case "SB":
-                        case "SC":
-                        case "SD":
-                        case "SM":
-                        case "SN":
-                        case "SS":
-                        case "SW":
-                            s1 = s3;
-                            s2 = s.Substring(2);
-                            break;
-                        default:
-                            s2 = s.Substring(1);
-                            break;
-                    }
-                    break;
-                case "T":
-                    s3 = s.Substring(0, 2);
-                    switch(s3)
-                    {
-                        case "TC":
-                        case "TM":
-                        case "TN":
-                        case "TS":
-                        case "TT":
-                            s1 = s3;
-                            s2 = s.Substring(2);
-                            break;
-                        default:
-                            s2 = s.Substring(1);
-                            break;
-                    }
-                    break;
-                default:
-                    throw new Exception("Invalid Address.");
+                }
             }
+            if (s2.Length == 0)
+                throw new Exception("Invalid plc tag type.");
+
             strPLCTagType = s1;
-            if (s1.Equals("X") || s1.Equals("Y") || s1.Equals("B") || s1.Equals("W"))
+            if (IsHexAddress(s1))
             {
                 nAddress = Convert.ToInt32(s2, 16);
                 addr_base = 16;
@@ -374,11 +330,6 @@ namespace PLCDataAccess
         public const int BUFFER_SIZE = 1024;
 
         public static string[] ValueTypeStr = { "B", "I2", "U2", "I4", "U4", "F", "S" };
-        public static string[] PLCTagTypeStr = {
-            "X", "Y", "B", "W", "SB", "DX", "DY", "M", "SM", "L", "F", "V",
-            "D", "SD", "R", "ZR", "S", "SW", "TC", "TS", "TN", "CC",
-            "CS", "CN", "SC", "SS", "SN", "Z", "TT", "TM", "CT", "CM", "A"
-        };
 
         public int LogicalNo { get; set; }
         public string Password { get; set; }
@@ -1542,13 +1493,39 @@ namespace PLCDataAccess
         /// <returns>返回读取的数据，读取失败返回空数组</returns>
         private short[] ReadBlock(ActUtlTypeLib.ActUtlTypeClass act, string address, int number, out int err_code)
         {
+            string tag_type, start_addr;
+            int addr, nums, addr0 = 0;
+            byte addr_base;
+            PLC_Tag.SplitAddress(address, out tag_type, out addr, out addr_base);
+            bool flag = PLC_Tag.IsBitTag(tag_type);
+            if (flag)
+            {
+                addr0 = (addr / 16) << 4;
+                nums = (addr + number - 1 - addr0 + 16) / 16;
+                start_addr = tag_type + Convert.ToString(addr0, PLC_Tag.IsHexAddress(tag_type) ? 16 : 10);
+            }
+            else
+            {
+                start_addr = address;
+                nums = number;
+            }
             try
             {
-                short[] data = new short[number];
-                err_code = act.ReadDeviceBlock2(address, number, out data[0]);
+                short[] data = new short[nums];
+                err_code = act.ReadDeviceBlock2(start_addr, nums, out data[0]);
                 if (0 != err_code)
                     return new short[] { };
-                return data;
+                if (flag)
+                {
+                    short[] dat = new short[number];
+                    for (int i = 0; i < number; i++)
+                    {
+                        dat[i] = (short)((data[(addr - addr0 + i) / 16] & (1 << ((addr + i) % 16))) == 0 ? 0 : 1);
+                    }
+                    return dat;
+                }
+                else
+                    return data;
             }
             catch
             {
@@ -1575,16 +1552,38 @@ namespace PLCDataAccess
         #region "WriteBlock"
         private int WriteBlock(ActUtlTypeLib.ActUtlTypeClass act, string addr_start, short[] Values)
         {
-            int r;
-            try
+            string tag_type;
+            int addr;
+            byte addr_base;
+            PLC_Tag.SplitAddress(addr_start, out tag_type, out addr, out addr_base);
+            bool flag = PLC_Tag.IsBitTag(tag_type);
+
+            if (flag)
             {
-                r = act.WriteDeviceBlock2(addr_start, Values.Length, ref Values[0]);
+                string addrs = addr_start;
+                short[] vals = new short[Values.Length];
+                vals[0] = (short)(Values[0] != 0 ? 1 : 0);
+                for(int i = 1; i< Values.Length; i++)
+                {
+                    addrs += "\n";
+                    addrs += tag_type + Convert.ToString(addr + i, addr_base);
+                    vals[i] = (short)(Values[i] != 0 ? 1 : 0);
+                }
+                return WriteRandom(act, addrs, vals);
             }
-            catch
+            else
             {
-                r = -1;
+                int r;
+                try
+                {
+                    r = act.WriteDeviceBlock2(addr_start, Values.Length, ref Values[0]);
+                }
+                catch
+                {
+                    r = -1;
+                }
+                return r;
             }
-            return r;
         }
         #endregion "WriteBlock"
         /// <summary>
@@ -1611,7 +1610,7 @@ namespace PLCDataAccess
                     switch (_tag.DataType)
                     {
                         case Tag_DataType.BIT:
-                            _tag.Value.bValue = dat[ndx] == 1;
+                            _tag.Value.bValue = dat[ndx] != 0;//(dat[ndx / 16] & (1 << (ndx % 16))) != 0;
                             break;
                         case Tag_DataType.INT16:
                             _tag.Value.i2Value = dat[ndx];
@@ -1677,7 +1676,7 @@ namespace PLCDataAccess
                     switch (_tag.DataType)
                     {
                         case Tag_DataType.BIT:
-                            _tag.Value.bValue = data[n] == 1;
+                            _tag.Value.bValue = data[n] != 0;
                             n++;
                             break;
                         case Tag_DataType.INT16:

@@ -43,10 +43,21 @@ namespace DataAccess
                 atag.Address = "D" + (i + 40).ToString();
                 atag.DataType = Tag_DataType.INT16;
                 D40_50List.Add(atag);
-
             }
             plcList[0].AddBlock("D40", 11, D40_50List);
 
+            List<PLC_Tag> X03_12List = new List<PLC_Tag>();
+            for(int i = 3; i < 0x13; i++)
+            {
+                X03_12List.Add(new PLC_Tag(plcList[0], "X" + string.Format("{0:X}", i)/*Convert.ToString(i, 16)*/, Tag_DataType.BIT));
+            }
+            plcList[0].AddBlock("X3", X03_12List.Count, X03_12List);
+            List<PLC_Tag> w0List = new List<PLC_Tag>();
+            for(int i = 0;i <= 10; i++)
+            {
+                w0List.Add(new PLC_Tag(plcList[0], "W" + Convert.ToString(i, 16), Tag_DataType.INT16));
+            }
+            plcList[0].AddBlock("W0", w0List.Count, w0List);
             foreach(MXObject obj in plcList)
             {
                 obj.OnConnectPLC += OnConnect;
@@ -113,6 +124,7 @@ namespace DataAccess
                     {
                         s += _tag.ToString() + ",";
                     }
+                    s += "|";
                 }
                 textBox17.Text = s.TrimEnd(',') ;
             }
